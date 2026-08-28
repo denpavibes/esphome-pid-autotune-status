@@ -1,0 +1,28 @@
+{
+    // Set the Microsoft C/C++ extension as the formatter for C and C++
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    // Set Ruff as the formatter and linter for Python
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+        }
+    },
+    // Auto-format whenever you save a file
+    "editor.formatOnSave": true,
+    // C++ IntelliSense include paths
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/esphome/**"
+    ],
+    // Python analysis extra paths
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/esphome"
+    ]
+}
