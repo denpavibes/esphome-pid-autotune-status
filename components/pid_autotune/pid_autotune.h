@@ -43,12 +43,20 @@ template class MemberExtractor<AutotunerTag, &pid::PIDClimate::autotuner_>;
 // --- 2. Access Bypass Trick for PIDAutotuner (not final) ---
 class AutotunerInspector : public pid::PIDAutotuner {
  public:
-  static bool is_successful(pid::PIDAutotuner *tuner) {
-    auto freq_ptr = &AutotunerInspector::frequency_detector_;
+  static bool is_amplitude_convergent(pid::PIDAutotuner *tuner) {
     auto amp_ptr = &AutotunerInspector::amplitude_detector_;
-    auto &freq = tuner->*freq_ptr;
     auto &amp = tuner->*amp_ptr;
-    return freq.is_increase_decrease_symmetrical() && amp.is_amplitude_convergent();
+    return amp.is_amplitude_convergent();
+  }
+
+  static bool is_frequency_symmetrical(pid::PIDAutotuner *tuner) {
+    auto freq_ptr = &AutotunerInspector::frequency_detector_;
+    auto &freq = tuner->*freq_ptr;
+    return freq.is_increase_decrease_symmetrical();
+  }
+
+  static bool is_successful(pid::PIDAutotuner *tuner) {
+    return is_frequency_symmetrical(tuner) && is_amplitude_convergent(tuner);
   }
 
   static uint32_t get_phase_count(pid::PIDAutotuner *tuner) {
@@ -60,18 +68,31 @@ class AutotunerInspector : public pid::PIDAutotuner {
 
 }  // namespace internal
 
-// --- Text Sensor: Status ---
-class PIDAutotuneTextSensor : public text_sensor::TextSensor, public PollingComponent {
+// --- Text Sensor: Status & Error Message ---
+class PIDAutotuneTextSensorComponent : public PollingComponent {
  protected:
   pid::PIDClimate *climate_{nullptr};
+  text_sensor::TextSensor *status_sensor_{nullptr};
+  text_sensor::TextSensor *error_message_sensor_{nullptr};
   std::string last_status_{""};
+  std::string last_error_{""};
 
  public:
   void set_climate(pid::PIDClimate *climate) { climate_ = climate; }
+  void set_status_sensor(text_sensor::TextSensor *status_sensor) { status_sensor_ = status_sensor; }
+  void set_error_message_sensor(text_sensor::TextSensor *error_message_sensor) {
+    error_message_sensor_ = error_message_sensor;
+  }
 
   void dump_config() override {
-    LOG_TEXT_SENSOR("", "PID Autotune Status", this);
+    ESP_LOGCONFIG(TAG, "PID Autotune Text Sensors:");
     LOG_UPDATE_INTERVAL(this);
+    if (this->status_sensor_ != nullptr) {
+      LOG_TEXT_SENSOR("  ", "Status", this->status_sensor_);
+    }
+    if (this->error_message_sensor_ != nullptr) {
+      LOG_TEXT_SENSOR("  ", "Error Message", this->error_message_sensor_);
+    }
   }
 
   void update() override {
@@ -81,6 +102,7 @@ class PIDAutotuneTextSensor : public text_sensor::TextSensor, public PollingComp
     }
 
     std::string current_status = "Off";
+    std::string current_error = "None";
 
     auto ptr_to_member = internal::MemberStorage<internal::AutotunerTag>::ptr;
     auto &autotuner_ptr = this->climate_->*ptr_to_member;
@@ -92,18 +114,30 @@ class PIDAutotuneTextSensor : public text_sensor::TextSensor, public PollingComp
           current_status = "Finished";
         } else {
           current_status = "Failed";
+          if (!internal::AutotunerInspector::is_amplitude_convergent(autotuner)) {
+            current_error = "Amplitude not convergent";
+          } else if (!internal::AutotunerInspector::is_frequency_symmetrical(autotuner)) {
+            current_error = "Frequency not symmetrical";
+          }
         }
       } else {
         current_status = "Running";
       }
     }
 
-    if (current_status != this->last_status_) {
-      this->publish_state(current_status);
+    if (this->status_sensor_ != nullptr && current_status != this->last_status_) {
+      this->status_sensor_->publish_state(current_status);
       this->last_status_ = current_status;
+    }
+
+    if (this->error_message_sensor_ != nullptr && current_error != this->last_error_) {
+      this->error_message_sensor_->publish_state(current_error);
+      this->last_error_ = current_error;
     }
   }
 };
+
+using PIDAutotuneTextSensor = PIDAutotuneTextSensorComponent;
 
 // --- Numeric Sensor: Phase Counter ---
 class PIDAutotuneSensor : public sensor::Sensor, public PollingComponent {

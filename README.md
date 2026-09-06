@@ -1,6 +1,6 @@
 # ESPHome PID Autotune Status
 
-An ESPHome custom component that exposes the PID Climate autotune status and phase progress as sensors in Home Assistant. Both sensors automatically appear under the Diagnostic category with appropriate icons. It now also includes a dedicated Switch component to seamlessly start, configure, and safely abort the tuning process directly from your dashboard.
+An ESPHome custom component that exposes the PID Climate autotune status, error messages, and phase progress as sensors in Home Assistant. All sensors automatically appear under the Diagnostic category with appropriate icons. It now also includes a dedicated Switch component to seamlessly start, configure, and safely abort the tuning process directly from your dashboard.
 
 ## Usage
 
@@ -27,8 +27,13 @@ switch:
 
 text_sensor:
   - platform: pid_autotune
-    name: "PID Autotune Status"
     climate_id: my_pid_climate
+    status:
+      id: autotune_status
+      name: "PID Autotune Status"
+    error_message:
+      id: autotune_error
+      name: "PID Autotune Error"
     update_interval: 5s
 
 sensor:
@@ -51,12 +56,21 @@ The switch allows you to control the autotune process interactively:
 * **negative_output** (*Optional*, float): The output value to apply for the cooling phase during tuning. Defaults to `-1.0`.
 * **update_interval** (*Optional*, Time): The interval to check the background process state to keep the switch UI in sync. Defaults to `5s`.
 
-### Text Sensor: Status States
+### Text Sensor: Status & Error Message
+Both `status` and `error_message` text sensors are optional, but at least one must be configured.
+
+#### Status (`status`)
 The status sensor will report one of the following states to Home Assistant:
 * **Off**: Autotune is not running.
 * **Running**: Autotune is currently in progress.
 * **Finished**: Autotune completed successfully (data was convergent and symmetrical).
 * **Failed**: Autotune finished, but failed to reach amplitude convergence or symmetry.
+
+#### Error Message (`error_message`)
+Provides diagnostic error information if autotuning fails:
+* **None**: No error detected (autotune is Off, Running, or completed successfully).
+* **Amplitude not convergent**: Autotune finished, but could not reliably determine oscillation amplitude.
+* **Frequency not symmetrical**: Autotune finished, but oscillation frequency was not symmetrical.
 
 ### Numeric Sensor: Phase Counter
 Tracks the `phase_count` during the autotuning process.
