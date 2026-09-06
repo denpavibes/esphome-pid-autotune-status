@@ -38,8 +38,19 @@ text_sensor:
 
 sensor:
   - platform: pid_autotune
-    name: "PID Autotune Phase"
     climate_id: my_pid_climate
+    phase:
+      id: autotune_phase
+      name: "PID Autotune Phase"
+    kp:
+      id: autotune_kp
+      name: "PID Autotune Kp"
+    ki:
+      id: autotune_ki
+      name: "PID Autotune Ki"
+    kd:
+      id: autotune_kd
+      name: "PID Autotune Kd"
     update_interval: 5s
 ```
 
@@ -72,10 +83,15 @@ Provides diagnostic error information if autotuning fails:
 * **Amplitude not convergent**: Autotune finished, but could not reliably determine oscillation amplitude.
 * **Frequency not symmetrical**: Autotune finished, but oscillation frequency was not symmetrical.
 
-### Numeric Sensor: Phase Counter
-Tracks the `phase_count` during the autotuning process.
-* Returns **0** when the autotuner is Off, Finished, or Failed.
-* Increments sequentially during the **Running** state as the relay function oscillates.
+### Numeric Sensors: Phase Counter, Kp, Ki, Kd
+All sensors under this platform (`phase`, `kp`, `ki`, `kd`) are optional, but at least one must be configured.
+
+* **Phase (`phase`)**: Tracks the `phase_count` during the autotuning process.
+  * Returns **0** when the autotuner is Off, Finished, or Failed.
+  * Increments sequentially during the **Running** state as the relay function oscillates.
+* **Kp, Ki, Kd (`kp`, `ki`, `kd`)**:
+  * While autotuning is running or before it has been run, these report the current active parameters from the underlying PID climate controller.
+  * When autotune completes, these values automatically update to the calculated **"No Overshoot PID"** rule parameters (`kp_factor = 0.2`, `ki_factor = 0.4`, `kd_factor = 0.0625`).
 
 ## License
 

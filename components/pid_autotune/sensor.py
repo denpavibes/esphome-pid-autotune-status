@@ -2,39 +2,106 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import climate, sensor
 from esphome.components.const import CONF_CLIMATE_ID
-from esphome.const import ENTITY_CATEGORY_DIAGNOSTIC, STATE_CLASS_MEASUREMENT
+from esphome.const import (
+    CONF_ID,
+    CONF_NAME,
+    CONF_UPDATE_INTERVAL,
+    ENTITY_CATEGORY_DIAGNOSTIC,
+    STATE_CLASS_MEASUREMENT,
+)
 from esphome.types import ConfigType
 
 DEPENDENCIES = ["climate"]
+
+CONF_PHASE = "phase"
+CONF_KP = "kp"
+CONF_KI = "ki"
+CONF_KD = "kd"
 
 pid_ns = cg.esphome_ns.namespace("pid")
 PIDClimate = pid_ns.class_("PIDClimate", climate.Climate)
 
 pid_autotune_ns = cg.esphome_ns.namespace("pid_autotune")
-PIDAutotuneSensor = pid_autotune_ns.class_(
-    "PIDAutotuneSensor", sensor.Sensor, cg.PollingComponent
+PIDAutotuneSensorComponent = pid_autotune_ns.class_(
+    "PIDAutotuneSensorComponent", cg.PollingComponent
 )
 
-CONFIG_SCHEMA = (
-    sensor.sensor_schema(
-        PIDAutotuneSensor,
-        icon="mdi:counter",
-        accuracy_decimals=0,
-        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
-        state_class=STATE_CLASS_MEASUREMENT,
-    )
-    .extend(
+
+def _validate_legacy(config):
+    if not isinstance(config, dict):
+        return config
+    if (
+        CONF_PHASE not in config
+        and CONF_KP not in config
+        and CONF_KI not in config
+        and CONF_KD not in config
+        and CONF_NAME in config
+    ):
+        config = config.copy()
+        phase_conf = {}
+        platform_keys = {CONF_CLIMATE_ID, CONF_UPDATE_INTERVAL}
+        for key in list(config.keys()):
+            if key not in platform_keys:
+                phase_conf[key] = config.pop(key)
+        config[CONF_PHASE] = phase_conf
+    return config
+
+
+CONFIG_SCHEMA = cv.All(
+    _validate_legacy,
+    cv.Schema(
         {
+            cv.GenerateID(): cv.declare_id(PIDAutotuneSensorComponent),
             cv.GenerateID(CONF_CLIMATE_ID): cv.use_id(PIDClimate),
+            cv.Optional(CONF_PHASE): sensor.sensor_schema(
+                icon="mdi:counter",
+                accuracy_decimals=0,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_KP): sensor.sensor_schema(
+                icon="mdi:chart-line",
+                accuracy_decimals=5,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_KI): sensor.sensor_schema(
+                icon="mdi:chart-line",
+                accuracy_decimals=5,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+            cv.Optional(CONF_KD): sensor.sensor_schema(
+                icon="mdi:chart-line",
+                accuracy_decimals=5,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
         }
-    )
-    .extend(cv.polling_component_schema("5s"))
+    ).extend(cv.polling_component_schema("5s")),
+    cv.has_at_least_one_key(CONF_PHASE, CONF_KP, CONF_KI, CONF_KD),
 )
 
 
 async def to_code(config: ConfigType) -> None:
-    var = await sensor.new_sensor(config)
+    var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
     climate_ = await cg.get_variable(config[CONF_CLIMATE_ID])
     cg.add(var.set_climate(climate_))
+
+    if phase_config := config.get(CONF_PHASE):
+        sens = await sensor.new_sensor(phase_config)
+        cg.add(var.set_phase_sensor(sens))
+
+    if kp_config := config.get(CONF_KP):
+        sens = await sensor.new_sensor(kp_config)
+        cg.add(var.set_kp_sensor(sens))
+
+    if ki_config := config.get(CONF_KI):
+        sens = await sensor.new_sensor(ki_config)
+        cg.add(var.set_ki_sensor(sens))
+
+    if kd_config := config.get(CONF_KD):
+        sens = await sensor.new_sensor(kd_config)
+        cg.add(var.set_kd_sensor(sens))

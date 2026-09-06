@@ -64,6 +64,12 @@ class AutotunerInspector : public pid::PIDAutotuner {
     auto &relay = tuner->*relay_ptr;
     return relay.phase_count;
   }
+
+  static pid::PIDAutotuner::PIDResult calculate_pid(pid::PIDAutotuner *tuner, float kp_factor, float ki_factor,
+                                                    float kd_factor) {
+    auto calc_ptr = &AutotunerInspector::calculate_pid_;
+    return (tuner->*calc_ptr)(kp_factor, ki_factor, kd_factor);
+  }
 };
 
 }  // namespace internal
@@ -139,17 +145,37 @@ class PIDAutotuneTextSensorComponent : public PollingComponent {
 
 using PIDAutotuneTextSensor = PIDAutotuneTextSensorComponent;
 
-// --- Numeric Sensor: Phase Counter ---
-class PIDAutotuneSensor : public sensor::Sensor, public PollingComponent {
+// --- Numeric Sensors: Phase Counter, Kp, Ki, Kd ---
+class PIDAutotuneSensorComponent : public PollingComponent {
  protected:
   pid::PIDClimate *climate_{nullptr};
+  sensor::Sensor *phase_sensor_{nullptr};
+  sensor::Sensor *kp_sensor_{nullptr};
+  sensor::Sensor *ki_sensor_{nullptr};
+  sensor::Sensor *kd_sensor_{nullptr};
 
  public:
   void set_climate(pid::PIDClimate *climate) { climate_ = climate; }
+  void set_phase_sensor(sensor::Sensor *phase_sensor) { phase_sensor_ = phase_sensor; }
+  void set_kp_sensor(sensor::Sensor *kp_sensor) { kp_sensor_ = kp_sensor; }
+  void set_ki_sensor(sensor::Sensor *ki_sensor) { ki_sensor_ = ki_sensor; }
+  void set_kd_sensor(sensor::Sensor *kd_sensor) { kd_sensor_ = kd_sensor; }
 
   void dump_config() override {
-    LOG_SENSOR("", "PID Autotune Phase Count", this);
+    ESP_LOGCONFIG(TAG, "PID Autotune Sensors:");
     LOG_UPDATE_INTERVAL(this);
+    if (this->phase_sensor_ != nullptr) {
+      LOG_SENSOR("  ", "Phase", this->phase_sensor_);
+    }
+    if (this->kp_sensor_ != nullptr) {
+      LOG_SENSOR("  ", "Kp", this->kp_sensor_);
+    }
+    if (this->ki_sensor_ != nullptr) {
+      LOG_SENSOR("  ", "Ki", this->ki_sensor_);
+    }
+    if (this->kd_sensor_ != nullptr) {
+      LOG_SENSOR("  ", "Kd", this->kd_sensor_);
+    }
   }
 
   void update() override {
@@ -162,18 +188,46 @@ class PIDAutotuneSensor : public sensor::Sensor, public PollingComponent {
     auto &autotuner_ptr = this->climate_->*ptr_to_member;
     pid::PIDAutotuner *autotuner = autotuner_ptr.get();
 
-    float current_phase = 0.0f;  // Default to 0 when off/finished
-
-    if (autotuner != nullptr && !autotuner->is_finished()) {
-      current_phase = (float) internal::AutotunerInspector::get_phase_count(autotuner);
+    if (this->phase_sensor_ != nullptr) {
+      float current_phase = 0.0f;  // Default to 0 when off/finished
+      if (autotuner != nullptr && !autotuner->is_finished()) {
+        current_phase = (float) internal::AutotunerInspector::get_phase_count(autotuner);
+      }
+      if (!this->phase_sensor_->has_state() || this->phase_sensor_->get_state() != current_phase) {
+        this->phase_sensor_->publish_state(current_phase);
+      }
     }
 
-    // Only publish if the state has changed
-    if (!this->has_state() || this->get_state() != current_phase) {
-      this->publish_state(current_phase);
+    if (this->kp_sensor_ != nullptr || this->ki_sensor_ != nullptr || this->kd_sensor_ != nullptr) {
+      float kp = 0.0f;
+      float ki = 0.0f;
+      float kd = 0.0f;
+
+      if (autotuner != nullptr && autotuner->is_finished()) {
+        auto pid_res = internal::AutotunerInspector::calculate_pid(autotuner, 0.2f, 0.4f, 0.0625f);
+        kp = pid_res.kp;
+        ki = pid_res.ki;
+        kd = pid_res.kd;
+      } else {
+        kp = this->climate_->get_kp();
+        ki = this->climate_->get_ki();
+        kd = this->climate_->get_kd();
+      }
+
+      if (this->kp_sensor_ != nullptr && (!this->kp_sensor_->has_state() || this->kp_sensor_->get_state() != kp)) {
+        this->kp_sensor_->publish_state(kp);
+      }
+      if (this->ki_sensor_ != nullptr && (!this->ki_sensor_->has_state() || this->ki_sensor_->get_state() != ki)) {
+        this->ki_sensor_->publish_state(ki);
+      }
+      if (this->kd_sensor_ != nullptr && (!this->kd_sensor_->has_state() || this->kd_sensor_->get_state() != kd)) {
+        this->kd_sensor_->publish_state(kd);
+      }
     }
   }
 };
+
+using PIDAutotuneSensor = PIDAutotuneSensorComponent;
 
 // --- Switch: Autotune Toggle ---
 class PIDAutotuneSwitch : public switch_::Switch, public PollingComponent {
