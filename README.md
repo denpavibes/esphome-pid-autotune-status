@@ -57,7 +57,7 @@ sensor:
 ### Switch: Autotune Toggle
 The switch allows you to control the autotune process interactively:
 * **Turning On:** Creates a new autotuner configured with your provided parameters (`noiseband`, `positive_output`, `negative_output`) and starts the tuning process.
-* **Turning Off:** Immediately aborts an active autotune by destroying the process in memory and returning the climate mode to Off, preventing the background PID from getting stuck. 
+* **Turning Off:** Immediately aborts an active autotune by destroying the autotuner object in memory.
 * **Auto-Sync:** The switch automatically toggles itself to the Off position when the autotune finishes or fails, keeping your Home Assistant dashboard perfectly synchronized with the hardware state.
 
 #### Switch Configuration Variables:
@@ -90,7 +90,7 @@ All sensors under this platform (`phase`, `kp`, `ki`, `kd`) are optional, but at
   * Returns **0** when the autotuner is Off, Finished, or Failed.
   * Increments sequentially during the **Running** state as the relay function oscillates.
 * **Kp, Ki, Kd (`kp`, `ki`, `kd`)**:
-  * While autotuning is running or before it has been run, these report the current active parameters from the underlying PID climate controller.
+  * While the autotuner is **Off** or **Running**, these sensors report **0.0**.
   * When autotune completes, these values automatically update to the calculated **"No Overshoot PID"** rule parameters (`kp_factor = 0.2`, `ki_factor = 0.4`, `kd_factor = 0.0625`).
 
 ## License
