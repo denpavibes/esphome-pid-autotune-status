@@ -92,7 +92,7 @@ All sensors under this platform (`phase`, `kp`, `ki`, `kd`) are optional, but at
   * Returns **0** when the autotuner is Off, Finished, or Failed.
   * Increments sequentially during the **Running** state as the relay function oscillates.
 * **Kp, Ki, Kd (`kp`, `ki`, `kd`)**:
-  * While the autotuner is **Off** or **Running**, these sensors report **0.0**.
+  * While the autotuner is **Off** or **Running**, these sensors report as **Unavailable** in Home Assistant.
   * When autotune completes, these values update to the calculated parameters using the selected `rules`.
 
 #### Sensor Platform Configuration Variables:
