@@ -39,6 +39,8 @@ text_sensor:
 sensor:
   - platform: pid_autotune
     climate_id: my_pid_climate
+    # Optional parameters (defaults shown)
+    rules: ZIEGLER_NICHOLS_PID
     phase:
       id: autotune_phase
       name: "PID Autotune Phase"
@@ -91,7 +93,21 @@ All sensors under this platform (`phase`, `kp`, `ki`, `kd`) are optional, but at
   * Increments sequentially during the **Running** state as the relay function oscillates.
 * **Kp, Ki, Kd (`kp`, `ki`, `kd`)**:
   * While the autotuner is **Off** or **Running**, these sensors report **0.0**.
-  * When autotune completes, these values automatically update to the calculated **"No Overshoot PID"** rule parameters (`kp_factor = 0.2`, `ki_factor = 0.4`, `kd_factor = 0.0625`).
+  * When autotune completes, these values update to the calculated parameters using the selected `rules`.
+
+#### Sensor Platform Configuration Variables:
+* **climate_id** (*Optional*, ID): The ID of the PID climate controller to tune.
+* **rules** (*Optional*, string): The Ziegler-Nichols tuning rule used to calculate `kp`, `ki`, and `kd` after autotune finishes. Has no effect if none of `kp`, `ki`, or `kd` are configured. Defaults to `ZIEGLER_NICHOLS_PID`.
+
+  | Value | Kp factor | Ki factor | Kd factor |
+  |---|---|---|---|
+  | `ZIEGLER_NICHOLS_PID` *(default)* | 0.6 | 1.2 | 0.075 |
+  | `ZIEGLER_NICHOLS_PI` | 0.45 | 0.54 | 0.0 |
+  | `PESSEN_INTEGRAL_PID` | 0.7 | 1.75 | 0.105 |
+  | `SOME_OVERSHOOT_PID` | 0.333 | 0.667 | 0.111 |
+  | `NO_OVERSHOOT_PID` | 0.2 | 0.4 | 0.0625 |
+
+* **update_interval** (*Optional*, Time): The interval to poll the autotuner state. Defaults to `5s`.
 
 ## License
 

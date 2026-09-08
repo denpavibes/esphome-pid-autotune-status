@@ -11,6 +11,15 @@
 
 namespace esphome::pid_autotune {
 
+// --- Tuning Rule Selection ---
+enum class PIDRule {
+  ZIEGLER_NICHOLS_PID,
+  ZIEGLER_NICHOLS_PI,
+  PESSEN_INTEGRAL_PID,
+  SOME_OVERSHOOT_PID,
+  NO_OVERSHOOT_PID,
+};
+
 // --- Text Sensor: Status & Error Message ---
 class PIDAutotuneTextSensorComponent : public PollingComponent {
  protected:
@@ -41,6 +50,7 @@ class PIDAutotuneSensorComponent : public PollingComponent {
   sensor::Sensor *kp_sensor_{nullptr};
   sensor::Sensor *ki_sensor_{nullptr};
   sensor::Sensor *kd_sensor_{nullptr};
+  PIDRule rules_{PIDRule::ZIEGLER_NICHOLS_PID};
 
  public:
   void set_climate(pid::PIDClimate *climate) { climate_ = climate; }
@@ -48,6 +58,7 @@ class PIDAutotuneSensorComponent : public PollingComponent {
   void set_kp_sensor(sensor::Sensor *kp_sensor) { kp_sensor_ = kp_sensor; }
   void set_ki_sensor(sensor::Sensor *ki_sensor) { ki_sensor_ = ki_sensor; }
   void set_kd_sensor(sensor::Sensor *kd_sensor) { kd_sensor_ = kd_sensor; }
+  void set_rules(PIDRule rules) { rules_ = rules; }
 
   void dump_config() override;
   void update() override;

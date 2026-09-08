@@ -76,6 +76,44 @@ static void reset_autotuner(pid::PIDClimate *climate) {
   (climate->*ptr_to_member).reset();
 }
 
+struct RuleFactors {
+  float kp, ki, kd;
+};
+
+static RuleFactors get_rule_factors(PIDRule rule) {
+  switch (rule) {
+    case PIDRule::ZIEGLER_NICHOLS_PID:
+      return {0.6f, 1.2f, 0.075f};
+    case PIDRule::ZIEGLER_NICHOLS_PI:
+      return {0.45f, 0.54f, 0.0f};
+    case PIDRule::PESSEN_INTEGRAL_PID:
+      return {0.7f, 1.75f, 0.105f};
+    case PIDRule::SOME_OVERSHOOT_PID:
+      return {0.333f, 0.667f, 0.111f};
+    case PIDRule::NO_OVERSHOOT_PID:
+      return {0.2f, 0.4f, 0.0625f};
+    default:
+      return {0.6f, 1.2f, 0.075f};
+  }
+}
+
+static const char *rule_name(PIDRule rule) {
+  switch (rule) {
+    case PIDRule::ZIEGLER_NICHOLS_PID:
+      return "Ziegler-Nichols PID";
+    case PIDRule::ZIEGLER_NICHOLS_PI:
+      return "Ziegler-Nichols PI";
+    case PIDRule::PESSEN_INTEGRAL_PID:
+      return "Pessen Integral PID";
+    case PIDRule::SOME_OVERSHOOT_PID:
+      return "Some Overshoot PID";
+    case PIDRule::NO_OVERSHOOT_PID:
+      return "No Overshoot PID";
+    default:
+      return "Unknown";
+  }
+}
+
 }  // namespace internal
 
 // ==================== Text Sensor Component ====================
@@ -135,6 +173,7 @@ void PIDAutotuneTextSensorComponent::update() {
 void PIDAutotuneSensorComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "PID Autotune Sensors:");
   LOG_UPDATE_INTERVAL(this);
+  ESP_LOGCONFIG(TAG, "  Rules: %s", internal::rule_name(this->rules_));
   if (this->phase_sensor_ != nullptr) {
     LOG_SENSOR("  ", "Phase", this->phase_sensor_);
   }
@@ -173,7 +212,8 @@ void PIDAutotuneSensorComponent::update() {
     float kd = 0.0f;
 
     if (autotuner != nullptr && autotuner->is_finished()) {
-      auto pid_res = internal::AutotunerInspector::calculate_pid(autotuner, 0.2f, 0.4f, 0.0625f);
+      auto factors = internal::get_rule_factors(this->rules_);
+      auto pid_res = internal::AutotunerInspector::calculate_pid(autotuner, factors.kp, factors.ki, factors.kd);
       kp = pid_res.kp;
       ki = pid_res.ki;
       kd = pid_res.kd;
