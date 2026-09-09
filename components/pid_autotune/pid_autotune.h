@@ -12,7 +12,7 @@
 namespace esphome::pid_autotune {
 
 // --- Tuning Rule Selection ---
-enum class PIDRule {
+enum PIDRule {
   ZIEGLER_NICHOLS_PID,
   ZIEGLER_NICHOLS_PI,
   PESSEN_INTEGRAL_PID,
