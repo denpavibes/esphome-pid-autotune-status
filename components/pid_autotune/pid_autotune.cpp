@@ -207,35 +207,18 @@ void PIDAutotuneSensorComponent::update() {
   }
 
   if (this->kp_sensor_ != nullptr || this->ki_sensor_ != nullptr || this->kd_sensor_ != nullptr) {
-    float kp = NAN;
-    float ki = NAN;
-    float kd = NAN;
+    if (autotuner == nullptr || !autotuner->is_finished())
+      return;
 
-    if (autotuner != nullptr && autotuner->is_finished()) {
-      auto factors = internal::get_rule_factors(this->rules_);
-      auto pid_res = internal::AutotunerInspector::calculate_pid(autotuner, factors.kp, factors.ki, factors.kd);
-      kp = pid_res.kp;
-      ki = pid_res.ki;
-      kd = pid_res.kd;
-    }
+    auto factors = internal::get_rule_factors(this->rules_);
+    auto pid_res = internal::AutotunerInspector::calculate_pid(autotuner, factors.kp, factors.ki, factors.kd);
 
-    // NaN-aware equality: avoids re-publishing NaN every tick (NaN != NaN is always true).
-    auto state_changed = [](sensor::Sensor *s, float new_val) -> bool {
-      if (!s->has_state())
-        return true;
-      float cur = s->get_state();
-      return std::isnan(new_val) ? !std::isnan(cur) : cur != new_val;
-    };
-
-    if (this->kp_sensor_ != nullptr && state_changed(this->kp_sensor_, kp)) {
-      this->kp_sensor_->publish_state(kp);
-    }
-    if (this->ki_sensor_ != nullptr && state_changed(this->ki_sensor_, ki)) {
-      this->ki_sensor_->publish_state(ki);
-    }
-    if (this->kd_sensor_ != nullptr && state_changed(this->kd_sensor_, kd)) {
-      this->kd_sensor_->publish_state(kd);
-    }
+    if (this->kp_sensor_ != nullptr && (!this->kp_sensor_->has_state() || this->kp_sensor_->get_state() != pid_res.kp))
+      this->kp_sensor_->publish_state(pid_res.kp);
+    if (this->ki_sensor_ != nullptr && (!this->ki_sensor_->has_state() || this->ki_sensor_->get_state() != pid_res.ki))
+      this->ki_sensor_->publish_state(pid_res.ki);
+    if (this->kd_sensor_ != nullptr && (!this->kd_sensor_->has_state() || this->kd_sensor_->get_state() != pid_res.kd))
+      this->kd_sensor_->publish_state(pid_res.kd);
   }
 }
 
