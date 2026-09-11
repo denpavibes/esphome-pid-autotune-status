@@ -93,7 +93,7 @@ static RuleFactors get_rule_factors(PIDRule rule) {
     case PIDRule::NO_OVERSHOOT_PID:
       return {0.2f, 0.4f, 0.0625f};
     default:
-      return {0.6f, 1.2f, 0.075f};
+      return get_rule_factors(PIDRule::ZIEGLER_NICHOLS_PID);
   }
 }
 
